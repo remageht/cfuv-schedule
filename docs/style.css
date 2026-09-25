@@ -2,14 +2,11 @@
 [data-theme="night"]{--bordo:#e8cf8f;--gold:#c5a253;--ink:#eceffa;--mut:#a3abd0;--line:#303c69;--bg:#0a0f24;--page:#0a0f24;--card:#1a2140;--input:#141b38}
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--page)}
-#stars{position:fixed;inset:0;z-index:-1;display:none}
-[data-theme="night"] #stars{display:block}
+#stars{position:fixed;inset:0;z-index:-1;display:block}
 .wrap{max-width:860px;margin:0 auto;padding:0 16px}
 .top{background:var(--bordo);color:#fff;padding:26px 0}
 [data-theme="night"] .top{background:#3a101a}
-.top__row{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.crest{flex:0 0 auto}
-.crest svg{display:block;width:52px;height:auto}
+.top__row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 #btnTheme{font-size:20px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.15);border:1px solid var(--gold);color:#fff}
 .top h1{margin:0;font-size:24px}
 .top h1 span{font-weight:400;opacity:.8;font-size:16px}
