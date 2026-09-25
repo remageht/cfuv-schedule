@@ -1,0 +1,4 @@
+token.txt
+.bot_state.json
+.cache/
+__pycache__/

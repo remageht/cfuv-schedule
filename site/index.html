@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Расписание КФУ им. Вернадского</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="stars" aria-hidden="true"></canvas>
+<header class="top">
+  <div class="wrap top__row">
+    <div>
+      <h1>📚 Расписание КФУ <span>им. Вернадского</span></h1>
+      <p class="sub">Данные с официального сайта <a href="https://cfuv.ru/raspisanie/" target="_blank" rel="noopener">cfuv.ru/raspisanie</a> · выбери факультет и группу</p>
+    </div>
+    <button id="btnTheme" title="Переключить тему">🌙</button>
+  </div>
+</header>
+<main class="wrap">
+  <div class="tabs">
+    <button id="tabGroup" class="tab on">Группа</button>
+    <button id="tabTeacher" class="tab">Преподаватель 👤</button>
+  </div>
+  <section class="card" id="paneGroup">
+    <div class="grid">
+      <label>Институт / факультет
+        <select id="selSub"><option value="">Загрузка…</option></select>
+      </label>
+      <label>Направление
+        <select id="selDir" disabled><option value="">—</option></select>
+      </label>
+      <label>Курс
+        <select id="selCourse" disabled><option value="">—</option></select>
+      </label>
+      <label>Группа
+        <select id="selGroup" disabled><option value="">—</option></select>
+      </label>
+    </div>
+    <div class="row">
+      <input id="search" list="codes" placeholder="Или введи код группы: ПИ-б-о-241">
+      <datalist id="codes"></datalist>
+      <button id="btnGo">Показать</button>
+    </div>
+    <div class="row filters">
+      <button data-f="now" class="chip">Сейчас 🟢</button>
+      <button data-f="today" class="chip on">Сегодня</button>
+      <button data-f="tomorrow" class="chip">Завтра</button>
+      <button data-f="week" class="chip">Неделя</button>
+      <button data-f="even" class="chip">Чётная</button>
+      <button data-f="odd" class="chip">Нечётная</button>
+    </div>
+    <div class="row filters">
+      <button data-s="0" class="chip sub on">Вся группа</button>
+      <button data-s="1" class="chip sub">Подгруппа 1</button>
+      <button data-s="2" class="chip sub">Подгруппа 2</button>
+      <button id="btnIcs" title="Скачать календарь для телефона">📅 .ics</button>
+    </div>
+    <p id="status" class="status"></p>
+  </section>
+  <section class="card" id="paneTeacher" hidden>
+    <div class="row">
+      <input id="tSearch" placeholder="Фамилия преподавателя: Парменов">
+      <button id="btnTeacher">Найти</button>
+    </div>
+    <p class="status">Пары преподавателя по всем группам · минимум 2 буквы</p>
+  </section>
+  <section id="out"></section>
+</main>
+<footer class="wrap foot">Сделано для студентов · парсер: <code>parser.py</code> · бот: <code>bot.py</code></footer>
+<script src="app.js"></script>
+</body>
+</html>
