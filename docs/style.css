@@ -7,7 +7,9 @@ body{margin:0;font-family:-apple-system,"Segoe UI",Roboto,sans-serif;color:var(-
 .wrap{max-width:860px;margin:0 auto;padding:0 16px}
 .top{background:var(--bordo);color:#fff;padding:26px 0}
 [data-theme="night"] .top{background:#3a101a}
-.top__row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.top__row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.crest{flex:0 0 auto}
+.crest svg{display:block;width:52px;height:auto}
 #btnTheme{font-size:20px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.15);border:1px solid var(--gold);color:#fff}
 .top h1{margin:0;font-size:24px}
 .top h1 span{font-weight:400;opacity:.8;font-size:16px}
