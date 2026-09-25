@@ -22,7 +22,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import parser  # noqa: E402
 
-SITE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "site")
+SITE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs")
 
 
 class Handler(SimpleHTTPRequestHandler):

@@ -6,6 +6,13 @@ const selSub = $("selSub"), selDir = $("selDir"), selCourse = $("selCourse"),
 
 let INDEX = null, GROUP = null, BELLS = {}, FILTER = "today", MODE = "group";
 let SUB = parseInt(localStorage.getItem("kfu_sub") || "0", 10) || 0;
+
+// GitHub Pages — статика без бэкенда: ходим напрямую в API вуза (CORS открыт).
+// Локально (web.py) — через свой /api/* прокси. Принудительно: ?api=direct | ?api=local
+const CFUV = "https://cfuv.ru/wp-json/cfu/v1/sched/";
+const _apiMode = (location.search.match(/[?&]api=(direct|local)/) || [])[1];
+const DIRECT = _apiMode ? _apiMode === "direct" : /\.github\.io$/.test(location.hostname);
+const api = p => (DIRECT ? CFUV + p.replace(/^api\//, "") : p);
 const DAY_NAMES = {1:"Понедельник",2:"Вторник",3:"Среда",4:"Четверг",5:"Пятница",6:"Суббота",7:"Воскресенье"};
 
 // ---------- тема день/ночь ----------
@@ -205,7 +212,7 @@ function fill(sel, items, placeholder) {
 
 async function loadIndex() {
   status.textContent = "Загружаю список групп…";
-  const r = await fetch("api/index");
+  const r = await fetch(api("api/index"));
   if (!r.ok) throw new Error("API недоступно: " + r.status);
   INDEX = await r.json();
   BELLS = {};
@@ -265,7 +272,7 @@ async function loadGroup(code) {
   status.textContent = "Загружаю " + code + "…";
   out.innerHTML = "";
   try {
-    const r = await fetch("api/group?code=" + encodeURIComponent(code));
+    const r = await fetch(api("api/group?code=" + encodeURIComponent(code)));
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
     GROUP = data;
@@ -307,9 +314,61 @@ document.querySelectorAll(".chip.sub").forEach(b => b.onclick = () => {
 document.querySelectorAll(".chip.sub").forEach(b =>
   b.classList.toggle("on", (parseInt(b.dataset.s, 10) || 0) === SUB));
 $("btnGo").onclick = () => loadGroup(search.value);
+function icsEscape(s) {
+  return String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/,/g, "\\,")
+    .replace(/;/g, "\\;").replace(/\r/g, " ").replace(/\n/g, " ");
+}
+function buildIcs(code, lessons, sub) {
+  // порт parser.to_ics: занятия × даты недель → ICS (для GitHub Pages без бэкенда)
+  let rows = lessons || [];
+  if (sub === 1 || sub === 2) rows = rows.filter(r => (r["подгруппа"] || 0) === 0 || r["подгруппа"] === sub);
+  const weeks = (INDEX && INDEX.weeks) || {};
+  const ch = weeks.ch || [], nch = weeks.nch || [];
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+  const out = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//KFU-schedule-bot//RU", "CALSCALE:GREGORIAN"];
+  const addDays = (s, n) => { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  const dt = (day, hm) => day.replace(/-/g, "") + "T" + String(hm).replace(":", "") + "00";
+  for (const z of rows) {
+    if (String(z["предмет"] || "").toLowerCase().includes("электив")) continue;
+    const bell = BELLS[z["пара"]];
+    if (!bell || !bell[0] || !bell[1]) continue;
+    let days;
+    if (z["дата"]) days = [z["дата"]];
+    else {
+      const mons = [];
+      if (z["чётность"] === "чёт" || z["чётность"] === "обе") mons.push(...ch);
+      if (z["чётность"] === "нечёт" || z["чётность"] === "обе") mons.push(...nch);
+      days = [...new Set(mons.map(m => addDays(m, (z["день"] || 1) - 1)))].sort();
+    }
+    let subj = String(z["предмет"] || "").trim();
+    if (z["подгруппа"] === 1 || z["подгруппа"] === 2) subj += ` (п/гр ${z["подгруппа"]})`;
+    const room = [z["аудитория"], z["корпус"]].filter(Boolean).join(", ");
+    const desc = [z["вид"] || "", code, (z["преподаватели"] || []).join(", ")].filter(Boolean).join(" · ");
+    for (const day of days) {
+      out.push("BEGIN:VEVENT",
+        `UID:${icsEscape(code)}-${z["день"]}-${z["пара"]}-${day}@kfu-schedule`,
+        `DTSTAMP:${stamp}`, `DTSTART:${dt(day, bell[0])}`, `DTEND:${dt(day, bell[1])}`,
+        `SUMMARY:${icsEscape(subj)}`, `LOCATION:${icsEscape(room)}`, `DESCRIPTION:${icsEscape(desc)}`,
+        "END:VEVENT");
+    }
+  }
+  out.push("END:VCALENDAR");
+  return out.join("\r\n");
+}
 $("btnIcs").onclick = () => {
   if (!GROUP) { status.textContent = "Сначала выбери группу."; return; }
-  location.href = "api/ics?code=" + encodeURIComponent(GROUP["код"]) + "&sub=" + SUB;
+  if (DIRECT) {
+    // статика: собираем ICS прямо в браузере и скачиваем
+    const blob = new Blob([buildIcs(GROUP["код"], GROUP["занятия"], SUB)], { type: "text/calendar;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = GROUP["код"] + ".ics";
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    status.textContent = "Календарь скачан 📅";
+  } else {
+    location.href = "api/ics?code=" + encodeURIComponent(GROUP["код"]) + "&sub=" + SUB;
+  }
 };
 search.addEventListener("keydown", e => { if (e.key === "Enter") loadGroup(search.value); });
 
@@ -444,7 +503,7 @@ async function findTeacher(q) {
   status.textContent = "Ищу " + q + "…";
   out.innerHTML = "";
   try {
-    const r = await fetch("api/find?by=teacher&q=" + encodeURIComponent(q));
+    const r = await fetch(api("api/find?by=teacher&q=" + encodeURIComponent(q)));
     const rows = await r.json();
     if (!r.ok) throw new Error(rows.error || ("HTTP " + r.status));
     if (!rows.length) { out.innerHTML = `<div class="empty">Преподавателя «${esc(q)}» не нашёл 😕</div>`; status.textContent = ""; return; }
