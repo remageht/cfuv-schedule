@@ -182,24 +182,38 @@ function startStars() {
     // надписи не зеркалим: counter-scale возвращает нормальное начертание
     const text = (s, x, y) => { ctx.save(); ctx.scale(flip, 1); ctx.fillText(s, x, y); ctx.restore(); };
     text("NOSCE TE IPSUM", 0, .55*S);
-    // крылья и тела грифонов
-    ctx.strokeStyle = "#c5a253"; ctx.lineWidth = Math.max(2, S * .035);
+    // грифоны-орлы по бокам щита: крыло веером, голова с клювом, тело, хвост, ноги
     for (const fw of [-1, 1]) {
-      const wx = fw * .48 * S, wy = -.5 * S;
-      const feather = (x1, y1, x2, y2) => {
-        ctx.beginPath(); ctx.moveTo(wx, wy); ctx.quadraticCurveTo(x1, y1, x2, y2); ctx.stroke();
+      const bx = fw * .58 * S;
+      ctx.strokeStyle = "#c5a253"; ctx.lineWidth = Math.max(2, S * .035);
+      // кромка крыла + 3 маховых пера веером вверх-наружу
+      ctx.beginPath(); ctx.moveTo(bx, -.55*S);
+      ctx.quadraticCurveTo(fw*1.0*S, -.95*S, fw*1.35*S, -.82*S); ctx.stroke();
+      const feather = (cx1, cy1, tx, ty) => {
+        ctx.beginPath(); ctx.moveTo(bx, -.55*S); ctx.quadraticCurveTo(cx1, cy1, tx, ty); ctx.stroke();
       };
-      feather(fw*1.5*S, -S, fw*1.4*S, -.92*S);
-      feather(fw*1.05*S, -.5*S, fw*.85*S, -.4*S);
-      feather(fw*.6*S, -.38*S, fw*.42*S, -.35*S);
-      // голова с клювом
-      ctx.beginPath(); ctx.moveTo(fw*.38*S, -.68*S);
-      ctx.quadraticCurveTo(fw*.22*S, -.66*S, fw*.12*S, -.63*S);
-      ctx.quadraticCurveTo(fw*.22*S, -.58*S, fw*.38*S, -.5*S); ctx.stroke();
-      // тело и хвост
-      ctx.beginPath(); ctx.moveTo(fw*.38*S, -.5*S);
-      ctx.quadraticCurveTo(fw*.42*S, -.05*S, fw*.42*S, .35*S);
-      ctx.quadraticCurveTo(fw*.8*S, .38*S, fw*.9*S, .5*S); ctx.stroke();
+      feather(fw*.9*S, -.9*S, fw*1.05*S, -1.02*S);
+      feather(fw*1.0*S, -.8*S, fw*1.22*S, -.95*S);
+      feather(fw*1.05*S, -.65*S, fw*1.35*S, -.82*S);
+      // шея и тело (толстая линия)
+      ctx.lineWidth = Math.max(3, S * .055);
+      ctx.beginPath(); ctx.moveTo(fw*.5*S, -.72*S);
+      ctx.quadraticCurveTo(fw*.56*S, -.5*S, fw*.6*S, -.1*S);
+      ctx.quadraticCurveTo(fw*.61*S, .12*S, fw*.58*S, .3*S); ctx.stroke();
+      ctx.lineWidth = Math.max(2, S * .035);
+      // голова
+      ctx.fillStyle = "#c5a253";
+      ctx.beginPath(); ctx.arc(fw*.5*S, -.8*S, Math.max(3, S*.085), 0, 7); ctx.fill();
+      // клюв (остриё к щиту)
+      ctx.beginPath();
+      ctx.moveTo(fw*.42*S, -.83*S); ctx.lineTo(fw*.42*S, -.75*S); ctx.lineTo(fw*.3*S, -.79*S);
+      ctx.closePath(); ctx.fill();
+      // хвост
+      ctx.beginPath(); ctx.moveTo(fw*.58*S, .28*S);
+      ctx.quadraticCurveTo(fw*.8*S, .4*S, fw*.95*S, .48*S); ctx.stroke();
+      // ноги
+      ctx.beginPath(); ctx.moveTo(fw*.56*S, .3*S); ctx.lineTo(fw*.54*S, .44*S);
+      ctx.moveTo(fw*.62*S, .3*S); ctx.lineTo(fw*.64*S, .44*S); ctx.stroke();
     }
     // щит
     ctx.fillStyle = "#5e2b97"; ctx.strokeStyle = "#c5a253"; ctx.lineWidth = Math.max(2, S * .03);
@@ -285,6 +299,7 @@ function setMode(m) {
   $("paneTeacher").hidden = m !== "teacher";
   out.innerHTML = "";
   if (m === "group" && GROUP) render();
+  else updateNowBar();
 }
 
 function fill(sel, items, placeholder) {
@@ -493,6 +508,7 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp
 
 function render() {
   if (!GROUP) return;
+  updateNowBar();
   if (FILTER === "now") { renderNow(); return; }
   let rows = GROUP["занятия"] || [];
   if (SUB === 1 || SUB === 2) rows = rows.filter(r => (r["подгруппа"] || 0) === 0 || r["подгруппа"] === SUB);
@@ -547,7 +563,69 @@ function renderNow() {
   out.innerHTML = h + `</div>`;
 }
 
-function sessRowHtml(z) {  const bits = [];
+function updateNowBar() {
+  // липкая плашка «что идёт сейчас» — всегда сверху, обновляется каждую минуту
+  const bar = $("nowBar");
+  if (!GROUP || MODE !== "group") { bar.hidden = true; return; }
+  const now = new Date();
+  const day = (now.getDay()+6)%7+1;
+  const mins = now.getHours()*60 + now.getMinutes();
+  const par = parityOf(now);
+  const tomin = hm => { const p = String(hm).split(":"); return (+p[0])*60 + (+p[1]); };
+  let rows = (GROUP["занятия"] || []).filter(r => r["день"] === day);
+  if (par !== "обе") rows = rows.filter(r => r["чётность"] === "обе" || r["чётность"] === par);
+  if (SUB === 1 || SUB === 2) rows = rows.filter(r => (r["подгруппа"] || 0) === 0 || r["подгруппа"] === SUB);
+  rows = rows.filter(r => BELLS[r["пара"]] && BELLS[r["пара"]][0] && BELLS[r["пара"]][1]);
+  rows.sort((a, b) => tomin(BELLS[a["пара"]][0]) - tomin(BELLS[b["пара"]][0]));
+  let cur = null, nxt = null;
+  for (const r of rows) {
+    const s = tomin(BELLS[r["пара"]][0]), e = tomin(BELLS[r["пара"]][1]);
+    if (s <= mins && mins <= e) cur = { r, left: e - mins };
+    else if (s > mins && !nxt) nxt = { r, soon: s - mins };
+  }
+  const nm = r => `${r["пара"]}-я · ${esc(r["предмет"])}${r["аудитория"] ? " (" + esc(r["аудитория"]) + ")" : ""}`;
+  let h = "";
+  if (cur) h += `🟢 <b>Сейчас:</b> ${nm(cur.r)} · до конца ~${cur.left} мин`;
+  if (nxt) h += (h ? "<br>" : "") + `➡ <b>Дальше</b> через ~${nxt.soon} мин: ${nm(nxt.r)}`;
+  if (!h) h = day >= 6 && !cur ? "🎉 Выходные — пар нет" : "🎉 Сегодня пар больше нет";
+  bar.innerHTML = h;
+  bar.hidden = false;
+}
+setInterval(updateNowBar, 60000);
+
+function weekText() {
+  // текст недели для «Поделиться»
+  const par = parityOf(new Date());
+  let rows = GROUP["занятия"] || [];
+  if (SUB === 1 || SUB === 2) rows = rows.filter(r => (r["подгруппа"] || 0) === 0 || r["подгруппа"] === SUB);
+  const lines = [`${GROUP["код"]} · неделя (${par})`];
+  for (let d = 1; d <= 6; d++) {
+    let list = rows.filter(r => r["день"] === d);
+    if (par !== "обе") list = list.filter(r => r["чётность"] === "обе" || r["чётность"] === par);
+    if (!list.length) continue;
+    list.sort((a, b) => a["пара"] - b["пара"]);
+    lines.push("", DAY_NAMES[d]);
+    for (const r of list) {
+      const t = BELLS[r["пара"]] ? `${BELLS[r["пара"]][0]}–${BELLS[r["пара"]][1]} ` : "";
+      const tch = (r["преподаватели"] || []).join(", ");
+      const room = [r["аудитория"], r["корпус"]].filter(Boolean).join(", ");
+      lines.push(`${r["пара"]}. ${t}${r["предмет"]}${r["вид"] ? " (" + r["вид"] + ")" : ""}` +
+        (tch ? " — " + tch : "") + (room ? " (" + room + ")" : ""));
+    }
+  }
+  return lines.join("\n");
+}
+$("btnShare").onclick = async () => {
+  if (!GROUP) { status.textContent = "Сначала выбери группу."; return; }
+  const text = weekText();
+  try {
+    if (navigator.share) await navigator.share({ title: "Расписание " + GROUP["код"], text, url: location.href });
+    else { await navigator.clipboard.writeText(text + "\n" + location.href); status.textContent = "Скопировано в буфер обмена 📋"; }
+  } catch (e) { /* пользователь отменил */ }
+};
+
+function sessRowHtml(z) {
+  const bits = [];
   if (z["дата"]) bits.push("📅 " + esc(z["дата"]));
   if (z["время"]) bits.push(esc(z["время"]));
   let subj = esc(z["предмет"] || z["дисциплина"] || "—");

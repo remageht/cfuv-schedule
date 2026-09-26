@@ -43,4 +43,6 @@ button:hover{background:#f3ead6}
 .meta{font-size:13px;color:var(--mut);margin-top:3px}
 .grp{display:inline-block;font-size:12px;font-weight:700;color:var(--bordo);border:1px solid var(--gold);border-radius:8px;padding:1px 8px;margin-top:4px}
 .empty{color:var(--mut);font-style:italic;padding:18px}
+.nowbar{position:sticky;top:0;z-index:5;margin:12px 0;padding:10px 14px;border-radius:12px;border:1px solid var(--gold);background:var(--card);font-size:14px}
+.nowbar b{color:var(--bordo)}
 .foot{color:var(--mut);font-size:12px;padding:18px 16px 30px}
