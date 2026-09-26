@@ -20,15 +20,16 @@ function setTheme(t) {
   document.documentElement.dataset.theme = t;
   localStorage.setItem("kfu_theme", t);
   $("btnTheme").textContent = t === "night" ? "☀️" : "🌙";
-  startStars(); // герб-созвездие виден в обеих темах (ночью — звёздный, днём — в полных цветах)
+  startStars(); // ночью — герб-созвездие, днём — цельный герб
 }
 $("btnTheme").onclick = () => setTheme(document.documentElement.dataset.theme === "night" ? "day" : "night");
 
-// ---------- ночные звёзды + созвездие-герб КФУ (полумесяц, звезда, крылья, КФУ) ----------
+// ---------- герб КФУ: ночью — созвездие, днём — цельный ----------
 let kfuThemeResizer = null;
 let kfuSide = "both";
 let kfuStarsRunning = false;
 let kfuStarsArr = [], kfuCrestObj = { nodes: [], edges: [] };
+let kfuPlaces = [], kfuDayDirty = true;
 function startStars() {
   const cv = $("stars"), ctx = cv.getContext("2d");
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -140,55 +141,123 @@ function startStars() {
     }
     const gutter = (W - Math.min(W, 880)) / 2;
     const S0 = Math.min(W, H * 1.15) * (W < 520 ? .5 : .3) * .32;
+    kfuPlaces = [];
+    const place = (cx, cy, L, flip) => { kfuPlaces.push({ cx, cy, L, flip }); unit(cx, cy, L, flip); };
     if (kfuSide === "center") {
-      unit(W / 2, H * .34, S0, 1);
+      place(W / 2, H * .34, S0, 1);
     } else if (kfuSide === "left" || kfuSide === "right") {
       const ox = Math.max(W * .14, gutter * .55);
       const Ls = Math.max(40, Math.min(120, gutter * .5, H * .095));
-      unit(kfuSide === "left" ? ox : W - ox, H * .42, Ls, kfuSide === "left" ? 1 : -1);
+      place(kfuSide === "left" ? ox : W - ox, H * .42, Ls, kfuSide === "left" ? 1 : -1);
     } else { // both
       if (W >= 1180) {
         const ox = Math.max(W * .13, gutter * .5);
         const Ls = Math.max(44, Math.min(120, gutter * .45, H * .095));
-        unit(ox, H * .42, Ls, 1);
-        unit(W - ox, H * .42, Ls, -1);
+        place(ox, H * .42, Ls, 1);
+        place(W - ox, H * .42, Ls, -1);
       } else {
-        unit(W / 2, H * .34, S0, 1);
+        place(W / 2, H * .34, S0, 1);
       }
     }
     kfuCrestObj = { nodes, edges };
+    kfuDayDirty = true;
     console.debug("[kfu] crest:", nodes.length, "nodes,", edges.length, "edges,", kfuSide);
   }
   build();
   if (!kfuThemeResizer) { kfuThemeResizer = build; addEventListener("resize", kfuThemeResizer); }
-  // палитра: ночью — звёздное золото/белый, днём — полные цвета герба
-  const pal = (g, night) => {
-    if (night) return (g === 5) ? "#ffffff" : "#ffe9c0";
-    if (g === 3) return "#5e2b97"; // щит — фиолет
-    if (g === 4) return "#1f5fa8"; // книга и лента — синь
-    if (g === 5) return "#a8842f"; // надписи — тёмное золото
-    return "#c5a253";              // звезда, крылья, грифоны — золото
-  };
+  // палитра точек ночью (звёздное золото/белый)
+  const pal = g => (g === 5 ? "#ffffff" : "#ffe9c0");
+  // цельный герб для белой темы: полные цвета, без мерцания и точек
+  function drawSolid(cx, cy, S, flip) {
+    ctx.save();
+    ctx.translate(cx, cy); ctx.scale(flip, 1);
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    // лента
+    ctx.strokeStyle = "#1f5fa8"; ctx.lineWidth = Math.max(4, S * .09);
+    ctx.beginPath(); ctx.moveTo(-1.05*S, .58*S);
+    ctx.quadraticCurveTo(-.35*S, .52*S, 0, .55*S);
+    ctx.quadraticCurveTo(.35*S, .52*S, 1.05*S, .58*S); ctx.stroke();
+    ctx.fillStyle = "#e8cf8f"; ctx.font = `700 ${Math.max(7, S * .07)}px sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    // надписи не зеркалим: counter-scale возвращает нормальное начертание
+    const text = (s, x, y) => { ctx.save(); ctx.scale(flip, 1); ctx.fillText(s, x, y); ctx.restore(); };
+    text("NOSCE TE IPSUM", 0, .55*S);
+    // крылья и тела грифонов
+    ctx.strokeStyle = "#c5a253"; ctx.lineWidth = Math.max(2, S * .035);
+    for (const fw of [-1, 1]) {
+      const wx = fw * .48 * S, wy = -.5 * S;
+      const feather = (x1, y1, x2, y2) => {
+        ctx.beginPath(); ctx.moveTo(wx, wy); ctx.quadraticCurveTo(x1, y1, x2, y2); ctx.stroke();
+      };
+      feather(fw*1.5*S, -S, fw*1.4*S, -.92*S);
+      feather(fw*1.05*S, -.5*S, fw*.85*S, -.4*S);
+      feather(fw*.6*S, -.38*S, fw*.42*S, -.35*S);
+      // голова с клювом
+      ctx.beginPath(); ctx.moveTo(fw*.38*S, -.68*S);
+      ctx.quadraticCurveTo(fw*.22*S, -.66*S, fw*.12*S, -.63*S);
+      ctx.quadraticCurveTo(fw*.22*S, -.58*S, fw*.38*S, -.5*S); ctx.stroke();
+      // тело и хвост
+      ctx.beginPath(); ctx.moveTo(fw*.38*S, -.5*S);
+      ctx.quadraticCurveTo(fw*.42*S, -.05*S, fw*.42*S, .35*S);
+      ctx.quadraticCurveTo(fw*.8*S, .38*S, fw*.9*S, .5*S); ctx.stroke();
+    }
+    // щит
+    ctx.fillStyle = "#5e2b97"; ctx.strokeStyle = "#c5a253"; ctx.lineWidth = Math.max(2, S * .03);
+    ctx.beginPath();
+    ctx.moveTo(-.43*S, -.15*S); ctx.lineTo(.43*S, -.15*S); ctx.lineTo(.43*S, .06*S);
+    ctx.quadraticCurveTo(.43*S, .2*S, .33*S, .28*S);
+    ctx.quadraticCurveTo(.2*S, .4*S, 0, .5*S);
+    ctx.quadraticCurveTo(-.2*S, .4*S, -.33*S, .28*S);
+    ctx.quadraticCurveTo(-.43*S, .2*S, -.43*S, .06*S);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // книга
+    const bk = -.42 * S, bh = .14 * S;
+    ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#c5a253"; ctx.lineWidth = Math.max(1.5, S * .018);
+    ctx.beginPath();
+    ctx.moveTo(-.48*S, bk+bh); ctx.quadraticCurveTo(-.1*S, bk-.04*S, 0, bk);
+    ctx.quadraticCurveTo(.1*S, bk-.04*S, .48*S, bk+bh);
+    ctx.lineTo(.48*S, bk+bh+S*.05); ctx.quadraticCurveTo(.1*S, bk-.04*S+S*.05, 0, bk+S*.05);
+    ctx.quadraticCurveTo(-.1*S, bk-.04*S+S*.05, -.48*S, bk+bh+S*.05);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = "#1f5fa8"; ctx.lineWidth = Math.max(1.5, S * .02);
+    ctx.beginPath(); ctx.moveTo(0, bk); ctx.lineTo(0, bk + bh + S*.05); ctx.stroke();
+    // звезда
+    ctx.fillStyle = "#c5a253";
+    ctx.beginPath();
+    for (let i = 0; i < 16; i++) {
+      const r = (i % 2 ? 5.5 : 13.5) / 88 * S;
+      const a = (Math.PI / 8) * i - Math.PI / 2;
+      const x = Math.cos(a) * r, y = -1.65 * S + Math.sin(a) * r;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.closePath(); ctx.fill();
+    // надписи
+    ctx.fillStyle = "#e8cf8f"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = `800 ${S * .5}px sans-serif`;
+    text("КФУ", 0, .05*S);
+    ctx.font = `700 ${S * .16}px sans-serif`;
+    text("1918", 0, .38*S);
+    ctx.restore();
+  }
   (function frame() {
     requestAnimationFrame(frame);
     const night = document.documentElement.dataset.theme === "night";
+    if (!night) {
+      if (!kfuDayDirty) return; // днём статика: рисуем один раз, без эффектов
+      kfuDayDirty = false;
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.globalAlpha = 1;
+      for (const p of kfuPlaces) drawSolid(p.cx, p.cy, p.L, p.flip);
+      return;
+    }
     const t = reduced ? 0 : performance.now() / 1000;
     ctx.clearRect(0, 0, cv.width, cv.height);
-    if (night) {
-      ctx.fillStyle = "#fff";
-      for (const s of kfuStarsArr) {
-        ctx.globalAlpha = reduced ? .8 : .45 + .35 * Math.sin(t * s.s + s.p);
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
-      }
-    } else {
-      ctx.fillStyle = "#aab0cc"; // днём фон-звёзды едва видны на белом
-      for (const s of kfuStarsArr) {
-        ctx.globalAlpha = reduced ? .3 : .18 + .12 * Math.sin(t * s.s + s.p);
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
-      }
+    ctx.fillStyle = "#fff";
+    for (const s of kfuStarsArr) {
+      ctx.globalAlpha = reduced ? .8 : .45 + .35 * Math.sin(t * s.s + s.p);
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
     }
-    ctx.strokeStyle = night ? "rgba(232,207,143,.28)" : "rgba(140,120,70,.32)";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(232,207,143,.28)"; ctx.lineWidth = 1;
     ctx.beginPath();
     for (const [i, j] of kfuCrestObj.edges) {
       ctx.moveTo(kfuCrestObj.nodes[i].x, kfuCrestObj.nodes[i].y);
@@ -196,10 +265,10 @@ function startStars() {
     }
     ctx.stroke();
     for (const nd of kfuCrestObj.nodes) {
-      const a = reduced ? .85 : .55 + .35 * Math.sin(t * 1.4 + nd.g * 12 + nd.x * .04);
+      const a = reduced ? .85 : .5 + .4 * Math.sin(t * 1.4 + nd.g * 12 + nd.x * .04);
       ctx.globalAlpha = a;
-      ctx.fillStyle = pal(nd.g, night);
-      ctx.beginPath(); ctx.arc(nd.x, nd.y, night ? (nd.g === 5 ? 1.1 : 1.6) : 1.7, 0, 7); ctx.fill();
+      ctx.fillStyle = pal(nd.g);
+      ctx.beginPath(); ctx.arc(nd.x, nd.y, nd.g === 5 ? 1.1 : 1.6, 0, 7); ctx.fill();
     }
     ctx.globalAlpha = 1;
   })();
